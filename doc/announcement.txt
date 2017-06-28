@@ -1,0 +1,32 @@
+This is the announcement for the first public release of Sage, version 1.0.
+
+What Is Sage?
+
+Sage is a run-time code analyzer for your Tcl and Tk applications, also
+know as a profiler. When you run your programs with Sage, you can collect
+and view this type of data:
+
+   1. total execution time of program
+   2. total time spent in global scope
+   3. total time spent in each procedure
+   4. total time spent in each procedure and its descendants
+   5. number of times each procedure is called
+
+Time data can be displayed in 3 formats: 
+
+   1. clicks (output from clock clicks)
+   2. seconds
+   3. a percentage of the total time
+
+This information is useful in pinpointing performance bottlenecks in your
+programs, and it provides a reference for selectively optimizing your code.
+
+Sage is written in 100% Tcl/Tk and should work on any Tcl/Tk 8.0 or greater
+platform, although it has only been tested on Linux i386 and SunOS/Solaris.
+
+Please visit the Sage website at http://www.doitow.com/~iliad/Tcl/sage/.
+Here you will find the distribution tar file, much more detailed
+documentation, and screenshots.
+
+john stump
+sep 1998

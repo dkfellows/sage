@@ -1,0 +1,43 @@
+README for sage/sageview
+
+--------------------------------------------------
+Home page: http://www.doitnow.com/~iliad/Tcl/sage/
+email: iliad@doitnow.com
+--------------------------------------------------
+
+Sage is a profiling tool for Tcl/Tk programs. It can collect and report data
+pertaining to where time is spent in your programs. Sage works on Tcl8.0 and
+above.
+
+
+Installation Instructions:
+==========================
+
+Sage has a simple installation: Unpack the tar file somewhere.
+
+On Unix systems, you can also:
+
+  1) modify the directory of the location of your tclsh or wish in the 
+     files `sage' and `sageview'.
+     
+  2) create symbolic links to the executables:
+  
+     ln -s $PWD/sage somewhere/bin/sage
+     ln -s $PWD/sageview somewhere/bin/sageview
+
+
+Files:
+======
+
+README                This file
+LICENSE               License for sage
+sage                  Sage program executor and data collector
+sageview              Sage data viewer
+doc/USERS.html        User's guide
+
+
+
+Please send questions, bug reports, and feature requests to: iliad@doitnow.com
+ 
+John Stump
+ 

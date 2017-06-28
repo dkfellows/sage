@@ -1,0 +1,182 @@
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+   <META NAME="Author" CONTENT="John Stump">
+   <META NAME="GENERATOR" CONTENT="Mozilla/4.04 [en] (X11; I; Linux 1.2.13 i586) [Netscape]">
+   <META NAME="Description" CONTENT="Tcl/Tk runtime code analyzer">
+   <TITLE>Sage</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
+
+<H1>
+Sage</H1>
+
+<H2>
+The Run-Time Tcl/Tk Code Analyzer</H2>
+
+<HR WIDTH="100%">
+<H1>
+News</H1>
+
+<UL>
+<LI>
+First release of version 1.0 made Sep-23-98.</LI>
+</UL>
+
+<H1>
+
+<HR WIDTH="100%"></H1>
+
+<H1>
+Quick Links</H1>
+
+<UL><A HREF="#What Is It">What Is It</A>
+<BR><A HREF="#Screenshots">Screenshots</A>
+<BR><A HREF="#Downloads">Downloads</A>
+<BR><A HREF="#Future Versions">Future Versions</A></UL>
+
+<HR WIDTH="100%">
+<H2>
+<A NAME="What Is It"></A>What Is It</H2>
+Sage is a run-time code analyzer for your Tcl and Tk applications, also
+know as a profiler. When you run your programs with Sage, you can collect
+and view this type of data:
+<OL>
+<LI>
+total execution time of program</LI>
+
+<LI>
+total time spent in global scope</LI>
+
+<LI>
+total time spent in each procedure</LI>
+
+<LI>
+total time spent in each procedure and its descendants</LI>
+
+<LI>
+number of times each procedure is called</LI>
+</OL>
+Time data can be displayed in 3 formats:
+<OL>
+<LI>
+clicks (output from <TT>clock clicks</TT>)</LI>
+
+<LI>
+seconds</LI>
+
+<LI>
+a percentage of the total time</LI>
+</OL>
+This information is useful in pinpointing performance bottlenecks in your
+programs, and it provides a reference for selectively optimizing your code.
+
+<P>To look at the user's guide, <A HREF="USERS.html">CLICK&nbsp;HERE</A>.
+
+<P>Sage should work on any Tcl/Tk 8.0 or greater platform, although it
+has only been tested on Linux i386 and SunOS/Solaris.
+<H2>
+<A NAME="Screenshots"></A>Screenshots</H2>
+Sage consists of two tools: the <B>sage</B> tool for running your application
+and collecting data, and the <B>sageview</B> tool for viewing the data.
+The following screenshots are from the <B>sageview</B> tool.
+<BR>&nbsp;
+<UL>
+<LI>
+This is displaying data from the default configuration; showing proc times,
+as a percentage of the total time, with 2 decimal places: <A HREF="images/default.gif">SCREEN</A>.</LI>
+
+<LI>
+This displays proc times + its descendants: <A HREF="images/descend.gif">SCREEN</A>.</LI>
+
+<LI>
+This displays proc times + its descendants in seconds: <A HREF="images/descsecs.gif">SCREEN</A>.</LI>
+
+<LI>
+This displays number of times each proc was called: <A HREF="images/calls.gif">SCREEN</A>.</LI>
+</UL>
+&nbsp;
+<H2>
+<A NAME="Downloads"></A>Downloads</H2>
+Here are the currently available versions:
+<UL>
+<LI>
+Version 1.0 released Sep-23-98</LI>
+
+<UL>
+<LI>
+<A HREF="sage-1.0.tar.gz">sage-1.0.tar.gz</A></LI>
+</UL>
+</UL>
+
+<H2>
+<A NAME="Future Versions"></A>Future Versions</H2>
+Here are some features to come in future versions:
+<UL>
+<LI>
+Windows support</LI>
+
+<LI>
+Option to selectively wrap commands (as opposed to procs) for data collection.&nbsp;
+This means you will be able to profile C-compiled Tcl commands as well
+as Tcl/Tk commands like <TT>lindex</TT> or <TT>update</TT>.</LI>
+
+<LI>
+Create a new scope called .bind., which contains the time data for statements
+run as bind callbacks.</LI>
+
+<LI>
+Speed up data collection procs via C commands.</LI>
+
+<LI>
+Ability to wrap Tk widgets as they are created in order to gather data
+on widget commands.</LI>
+
+<LI>
+Spruce up print dialog and support prettier PS output.</LI>
+
+<LI>
+Improve interface to filters</LI>
+
+<LI>
+Run program in its own interpreter.</LI>
+
+<LI>
+A GUI for sage to better specify what data you want collected.</LI>
+
+<LI>
+Statement performance breakdowns: collect data on a statement by statement
+basis, instead of proc by proc. Perhaps this will be selective by proc;
+otherwise it might be too slow to do statement analysis for entire program.
+For instance, user can select to do statement analysis for the procs x,
+y, and z.</LI>
+
+<LI>
+Proc details. For each proc, keep track of the following data:</LI>
+
+<UL>
+<LI>
+who called me and how many times</LI>
+
+<LI>
+who do I call, how many times, and how much time do I spend in each descendant</LI>
+</UL>
+
+<LI>
+Call graph? Is this sort of thing useful?</LI>
+
+<LI>
+Test coverage support?</LI>
+</UL>
+
+<H2>
+License</H2>
+Sage is covered by the Starving Artist Artististic License: <A HREF="LICENSE">READ
+LICENSE</A>.
+
+<P>
+<HR WIDTH="100%">
+<CENTER><FONT SIZE=-1>Sage was written by John Stump &copy;1998, <A HREF="mailto:iliad@doitnow.com">iliad@doitnow.com</A></FONT></CENTER>
+
+</BODY>
+</HTML>

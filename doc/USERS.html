@@ -1,0 +1,427 @@
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+   <META NAME="Author" CONTENT="John Stump">
+   <META NAME="GENERATOR" CONTENT="Mozilla/4.04 [en] (X11; I; Linux 1.2.13 i586) [Netscape]">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
+
+<H1>
+Sage</H1>
+
+<H3>
+version 1.0</H3>
+
+<HR WIDTH="100%">
+<H2>
+Quick Links</H2>
+
+<UL><A HREF="#Introduction">Introduction</A>
+<BR><A HREF="#Type Of Data Collected">Type Of Data Collected</A>
+<BR><A HREF="#Ways to Display the Data">Ways to Display the Data</A>
+<BR><A HREF="#Running Sage">Running Sage</A>
+<UL><A HREF="#Sage options">Sage options</A></UL>
+<A HREF="#Running the Sage Viewer">Running the Sage Viewer</A>
+<UL><A HREF="#sageview Options">Sageview options</A>
+<BR><A HREF="#An Example Session">An Example Session</A></UL>
+<A HREF="#How the Data is Figured">How the Data is Figured</A></UL>
+
+<HR WIDTH="100%">
+<H2>
+<A NAME="Introduction"></A>Introduction</H2>
+Sage is an analysis tool for measuring performance of Tcl/Tk scripts, much
+like a profiler. It can be used to detect where performance bottlenecks
+are occurring.
+
+<P>Currently, the lowest resolution of analysis is at the proc level, with
+a few special scopes, such as global. What this means is that timing information
+is collected only for procs and not individual statements (this may come
+in a later release).
+
+<P>Sage is actually composed of two tools: the <B>sage</B> tool runs your
+scripts and collects the data. The <B>sageview</B> tool displays your data.
+
+<P>
+<HR WIDTH="100%">
+<H2>
+<A NAME="Type Of Data Collected"></A>Type Of Data Collected</H2>
+The list below shows what type of data is collected when you run your scripts
+through <B>sage</B>:
+<UL>
+<LI>
+total execution time of script</LI>
+
+<LI>
+total time spent in sage data collection overhead</LI>
+
+<LI>
+total time spent in Tcl/Tk core commands and procs</LI>
+
+<LI>
+total time spent in your procs</LI>
+
+<LI>
+total time spent in wait loops</LI>
+
+<LI>
+total time spent in global scope</LI>
+
+<LI>
+for each proc:</LI>
+
+<UL>
+<LI>
+number of calls made to proc</LI>
+
+<LI>
+total time spent in proc</LI>
+
+<LI>
+total time spent in proc and its descendents</LI>
+</UL>
+</UL>
+
+<H2>
+<A NAME="Ways to Display the Data"></A>Ways to Display the Data</H2>
+Once the data is collected, there are a few ways of displaying it using
+<B>sageview</B>, as shown in this list:
+<UL>
+<LI>
+time in clicks</LI>
+
+<LI>
+time in seconds</LI>
+
+<LI>
+time as a percentage of total run time</LI>
+
+<LI>
+a variety of precisions, ranging from 0 to 5 digits to the right of the
+decimal place</LI>
+</UL>
+
+<HR WIDTH="100%">
+<H2>
+<A NAME="Running Sage"></A>Running Sage</H2>
+In order to collect the timing data for your script, you must run it through
+<B>sage</B>. <B>sage</B> is a Tcl script that sets up the environment to
+instrument your procs as they are defined to make proc entry and exit callbacks
+to the sage code.
+
+<P>The syntax for sage is:
+<UL>
+<PRE>sage ?<I>options</I>? <I>script</I> ?<I>script options?</I></PRE>
+</UL>
+<I><TT>script</TT> </I>is the Tcl/Tk script you want to run and collect
+data for, and <I><TT>script options</TT></I> are the options you would
+normally give when you run it.
+
+<P>Sage assumes the standard tclsh interpreter (or wish if you supply the
+-w option to sage), so if you need to run your script with a custom built
+interpreter or a different version of the interpreter, then you can use
+this syntax:
+<UL>
+<PRE><I>interpreter</I> <I>full_path_to_sage</I> ?<I>options</I>? <I>script</I> ?<I>script options</I>?</PRE>
+</UL>
+If your custom interpreter does not support this syntax, then you will
+have to do some tinkering to get it to work.
+<BR>&nbsp;
+<H3>
+<A NAME="Sage options"></A>Sage options</H3>
+You can modify the way sage operates via options:
+<UL><TT>-d | -data <I>outfile</I></TT>
+<UL>By default, <B>sage</B> sends its data to the file <TT>./sage.out.</TT>
+You can override this with this option. Set <I><TT>outfile</TT></I> to
+the output file you wish the sage data to go.</UL>
+<TT>-w</TT>
+<UL>Wish flag. When this is set, <B>sage</B> assumes your script needs
+the wish interpreter, so it does a "<TT>package require Tk"</TT> to load
+it in. Note that some installations are not properly set up to support
+loading Tk from tclsh. If yours is not set up for this, you will have to
+use the second syntax shown above. Either way, you should use the -w flag
+because it also tells <B>sage</B> to do some special handling for event
+loops.
+<BR>&nbsp;</UL>
+<TT>-c</TT>
+<UL>Core procs flag. This flag tells <B>sage</B> to redefine pre-existing
+procs so that data can be collected on them too. This handles those procs
+that are loaded automatically by the interpreter before sage is loaded,
+such as the multitude of Tk procs in the Tk lib directory. Without this
+flag, no data is collected for these procs.
+<BR>&nbsp;</UL>
+<TT>-sv</TT>
+<UL>Sage viewer flag. With this option, sage will automatically invoke
+the sageview tool on the collected data when the script is complete. The
+default action is to exit when the script is done, and you will have to
+invoke the sage viewer manually.</UL>
+</UL>
+&nbsp;
+
+<P><B>Sage</B> should run your script without any side effects other than
+being a little slower while it collects the data. When your script is complete,
+<B>sage</B> will dump out the collected data to the file <TT>sage.out</TT>
+(or a file specified via the <TT>-d</TT> option). If the <TT>-sv</TT> option
+was specified, then it will start up the sage viewer. Then sage exits.
+
+<P>
+<HR WIDTH="100%">
+<H2>
+<A NAME="Running the Sage Viewer"></A>Running the Sage Viewer</H2>
+In order to view the collected data, you use the <B>sageview</B> tool.
+<B>sageview</B> can be started automatically when <B>sage</B> is complete
+by using the <TT>-sv</TT> option on sage, or you can start it up manually
+with the following syntax:
+<UL>
+<PRE>sageview ?options?</PRE>
+</UL>
+
+<H3>
+<A NAME="sageview Options"></A>sageview Options</H3>
+
+<UL><TT>-d | -data <I>infile</I></TT>
+<UL>By default sageview looks for the file <TT>./sage.out</TT>. If it was
+placed somewhere else or with a different name, then use this option to
+override the default.
+<BR>&nbsp;</UL>
+<TT>-rc <I>initfile</I></TT>
+<UL>By default, <B>sageview</B> reads configuration information from a
+file called <TT>.sagerc</TT> (or <TT>sage.ini </TT>on Windows) in your
+home directory. Using this option can override this to read some other
+file. You can also prevent any rc file from being read in by simply setting
+<I><TT>initfile</TT></I> to "".</UL>
+</UL>
+
+<H3>
+<A NAME="An Example Session"></A>An Example Session</H3>
+This describes a sample session profiling the tkps utility written by Henry
+Minsky. The data was collected using this command line:
+<UL>
+<PRE>sage -w -c `which tkps`</PRE>
+</UL>
+While tkps was running, I clicked a few buttons, then exited. The sage
+viewer was brought up like this:
+<UL>
+<PRE>sageview</PRE>
+</UL>
+which brings up the following window:
+
+<P><IMG SRC="images/main.gif" NOSAVE HEIGHT=609 WIDTH=599>
+<H4>
+The status box</H4>
+Below the menu bar is a status box. This displays the following information:
+<UL>
+<LI>
+The program whose data you are currently analyzing, and arguments passed
+to it during its run</LI>
+
+<LI>
+The total execution time. This time includes everything for the sample
+run, except:</LI>
+
+<UL>
+<LI>
+the time taken to load the interpreter</LI>
+
+<LI>
+the time taken to load the sage code</LI>
+
+<LI>
+the time taken to save the sage data</LI>
+</UL>
+
+<LI>
+Sage overhead time. Sage keeps track of the time it spends instrumenting
+procs and collecting data. The value in the parentheses is the percentage
+of the total execution time that is sage data collection overhead.</LI>
+
+<LI>
+Total time spent in Tcl/Tk core. This is not a measured value, but a calculated
+value, and its value should be viewed with a grain of salt. It really is
+just the unaccounted for time. See the section <A HREF="#How the Data is Figured">How
+the Data is Figured</A> for more information.</LI>
+</UL>
+
+<H4>
+The proc listbox</H4>
+This listbox contains the list of procs of your script in descending order.
+The sorting depends on what the data is you're viewing. The procs are fully
+qualified with their namespaces.
+
+<P>There are a couple special entries that show up in this listbox:
+<UL>
+<LI>
+<TT>.total. </TT>This is the total time spent in your procs.</LI>
+
+<LI>
+<TT>.global.</TT> This is the total time spent in the global scope; ie
+Tcl/Tk code not inside a proc.</LI>
+
+<LI>
+<TT>.wait.</TT> This is the total time spent waiting. This is calculated
+by keeping track of how much time is spent inside the <TT>tkwait</TT> and
+<TT>vwait</TT> commands.</LI>
+</UL>
+
+<H5>
+Searching for text</H5>
+Below the listbox is an entry box for searching for text in the listbox.
+Type in the text you want to search for and hit enter or hit the "find
+it" button. The search starts from where the current selection is, or from
+the top if there is no selection. Hit "find it" again and it will keep
+searching through the list until it cannot find any more matches.
+<H5>
+Showing proc detail</H5>
+<I>(This feature is not available in version 1.0)</I>
+
+<P>You can select a proc in the list and hit the Show Proc Details button
+(or double click in the listbox) and this will bring up a new window with
+deatils on the selected proc. <I>More details will follow when the feature
+is completed.</I>
+<BR>&nbsp;
+<H4>
+The Menu Bar</H4>
+The following functions are available on the menu bar.
+<H5>
+Sage Menu Button</H5>
+
+<UL><B>Print...</B>
+<BR>&nbsp;
+<UL><IMG SRC="images/print.gif" NOSAVE HEIGHT=99 WIDTH=403 ALIGN=TEXTTOP>
+
+<P>Brings up a dialog for printing the data. The printer&nbsp; command
+must be able to get its input from standard in. The data printed is whatever
+is in the Proc Listbox. Therefore, set up the data viewed, units, and filters
+first.
+<BR>&nbsp;</UL>
+<B>Exit</B>
+<UL>Exits the sage data viewer. The data file is still there and can be
+brought up again.</UL>
+</UL>
+
+<H5>
+View Menu Button</H5>
+
+<UL><B>Data</B>
+<UL><B>Proc time</B>
+<UL>Displays the total time spent in each proc.
+<BR>&nbsp;</UL>
+<B>Proc time &amp; descendants</B>
+<UL>Displays the total spent in each proc plus the time spent in its descendants.
+<BR>&nbsp;</UL>
+<B>Number of calls</B>
+<UL>Displays the number of times each proc was called.
+<BR>&nbsp;</UL>
+<B>Include .wait. in calculations</B>
+<UL>This is a checkbutton which tells sage to include the time spent in
+a wait loop in all the time calculations or not.
+<BR>&nbsp;</UL>
+</UL>
+<B>Units</B>
+<UL><B>Clicks</B>
+<UL>Displays time data in clicks.
+<BR>&nbsp;</UL>
+<B>Seconds</B>
+<UL>Displays time data in seconds.
+<BR>&nbsp;</UL>
+<B>% of .total.</B>
+<UL>Displays time data as a percentage of the value in .total.
+<BR>&nbsp;</UL>
+</UL>
+<B>Precision</B>
+<UL>This allows you to change the precision of the seconds and percentage
+time displays, from 0 to 5 places to the right of the decimal.
+<BR>&nbsp;</UL>
+<B>Save Settings</B>
+<UL>Various settings can be saved in the rc file. Here are the items currently
+saved:
+<UL>
+<LI>
+data to view (proc time, proc time &amp; descendants, or number of calls)</LI>
+
+<LI>
+units to view time data (clicks, seconds, or percentage)</LI>
+
+<LI>
+precision (0 to 5 decimal places)</LI>
+
+<LI>
+inclusion and exclusion filters</LI>
+
+<LI>
+the print command</LI>
+
+<LI>
+the toplevel window geometry</LI>
+</UL>
+The next time you start up <B>sageview</B>, these settings will be read
+in.</UL>
+</UL>
+
+<H5>
+Filter Menu Button</H5>
+
+<UL><B>Include Procs...</B>
+<BR>&nbsp;
+<UL><IMG SRC="images/include.gif" NOSAVE HEIGHT=139 WIDTH=451></UL>
+&nbsp;
+<UL>This allows you to create filters to show only specific procs. The
+default is *, which means show all procs. The expression is a space delimited
+list of <TT>string match</TT> or <TT>regexp</TT> expressions that, if true,
+will cause a proc to be displayed.
+
+<P>For instance, if you want to only see the Tk procs from the run, enter
+an expression of <TT>::tk*.</TT>
+<BR>&nbsp;</UL>
+<B>Exclude Procs...</B>
+<BR>&nbsp;
+<UL><IMG SRC="images/exclude.gif" NOSAVE HEIGHT=203 WIDTH=451>
+
+<P>You can also specify filters to exclude procs from being displayed.
+The expression list is the same as it is for the include procs, except
+that if there is any match in the list of expressions for a proc, it will
+not be displayed.
+
+<P>The <TT>exclude procs called &lt; <I>xx</I> times </TT>allows you to
+not display procs that are called fewer than a specified minimum number
+of times.
+
+<P>The <TT>exclude procs &lt; <I>xx</I> % of .total.</TT> allows you to
+exclude procs whose percentages are less than the specified minimum.
+
+<P>Note: The include filters are applied first, then the exclude filters
+are applied to the results of the include filters.</UL>
+</UL>
+
+<H5>
+Help Menu Button</H5>
+
+<UL><B>About...</B>
+<UL>Displays the version number and warranty information.
+<BR>&nbsp;</UL>
+<B>Users Guide</B>
+<UL><I>(Note: not yet implemented) </I>Brings up this user's guide in a
+window.</UL>
+</UL>
+
+<H2>
+<A NAME="How the Data is Figured"></A>How the Data is Figured</H2>
+Sage data is collected with the aid of two stop watches: one watch to time
+the execution of your script, and another to time the sage data collection
+code. Depending on which code is running determines which stop watch is
+ticking away.
+
+<P>The only computed time value is the Tcl/Tk core time. This is computed
+via the formula:
+<UL>core time = absolute execution time - total proc time (.total.) - sage
+overhead time.</UL>
+Theoretically, this calculated time should be accurate. Unfortunately,
+there are some latency issues. The two stop watches should be stopped and
+started atomically, but they aren't. For long running scripts, these latency
+times tend to creep into the time values, making the proc total time too
+large and the sage overhead too small.
+
+<P>But although the timing isn't perfect, all procs are timed in the same
+manner, so the percentages of .total. should be fairly accurate. I will
+continue to improve the timing accuracy and lower the latency.
+</BODY>
+</HTML>

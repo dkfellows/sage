@@ -1,0 +1,777 @@
+#!/bin/sh
+# \
+exec /usr/local/bin/wish8.0 $0 -- $@
+#
+
+namespace eval SageViewer {
+  variable datafile "./sage.out"
+  variable totaltimes
+  variable proccounts
+  variable timers
+  variable totaltime
+  variable program_name
+  variable program_args
+  variable absolute
+  variable coretime
+  variable sagetime
+  variable stat_absolute
+  variable stat_sage
+  variable stat_core
+  variable rcfile 
+  
+  # GUI related fields
+  variable top
+  variable dataLB
+  
+  # config related
+  variable dataview "proctime"
+  variable units "percent"
+  variable precision "2"
+  variable printcmd "lpr"
+  variable includewait 1
+  
+  # filter stuff
+  variable showlist "*"
+  variable showexptype "match"
+  variable excllist ""
+  variable exclexptype "match"
+  variable exclnumcalls 0
+  variable exclpercentage 0.0
+  
+  proc main {argv} {
+    parseArgs $argv
+    readData
+    createWindow
+    run
+  }
+  
+  proc parseArgs {argv} {
+    variable datafile
+    variable rcfile
+    global tcl_platform
+    global env
+    
+    if { $tcl_platform(platform) == "windows" } {
+      set rcfile $env(HOME)/sageview.ini
+    } {
+      set rcfile ~/.sageview
+    }
+    
+    # parse the command line options
+    for {set argc 0} {[string match -* [lindex $argv $argc]]} {incr argc} {
+      switch -exact -- [lindex $argv $argc] {
+        -V -
+        -version {
+          puts "sageviewer version %%VERSION%%"
+          exit 0
+        }
+        
+        -h -
+        -help {
+          puts "
+syntax: sageview ?sageviewer options? program ?options?
+
+sageviewer options:
+
+    -V | -version
+       Prints version of sageviewer and exits
+
+    -d | -data <file>
+       Specifies sage input data file. Default is ./sage.out
+
+    -rc <rcfile>
+       Specifies the initialization file to use for reading and saving. 
+       Default is $rcfile
+"
+          exit 0
+        }
+        
+        -d -
+        -data {
+          incr argc
+          set datafile [lindex $argv $argc]
+        }
+        
+        -rc {
+          incr argc
+          set rcfile [lindex $argv $argc]
+        }
+
+        default {
+          puts stderr "unknown option: '[lindex $argv $argc]'"
+          exit 1
+        }
+      }
+    }
+  }
+  
+  proc readData {} {
+    variable datafile 
+    variable totaltimes
+    variable proccounts
+    variable timers
+    variable totaltime
+    variable program_name
+    variable program_args
+    variable absolute
+    variable coretime
+    variable sagetime
+    
+    # source in the data file to populate the data arrays
+    source $datafile
+    
+    if { ! [info exists VERSION] } {
+      tk_dialog .error Error "No version information in sage data file" error 0 Exit
+      exit 1
+    } else {
+      switch $VERSION {
+        1.0 {
+        }
+        
+        default {
+          tk_dialog .error Error "This sage viewer does not support sage data version $VERSION" error 0 Exit
+          exit 1
+        }
+      }
+    }
+  }
+  
+  proc createWindow {} {
+    variable dataLB
+    
+    wm withdraw .
+    
+    # create the toplevel window
+    set top [toplevel .top]
+    wm title $top "SageViewer"
+    
+    # create the menubar frame
+    set menubarF [frame .top.mbf]
+    pack $menubarF -side top -fill x
+    
+    # menubuttons
+    #
+    # Sage
+    set mb [menubutton $menubarF.mbSage -text Sage -underline 0]
+    pack $mb -side left -padx 4
+    
+    set m [menu $mb.m]
+    $mb configure -menu $m
+    
+    $m add command -label "Print..." -command [namespace code printwindow]
+    $m add command -label "Exit" -command "destroy .top"
+    
+    # View
+    set mb [menubutton $menubarF.mbView -text View -underline 0]
+    pack $mb -side left -padx 4
+    
+    set m [menu $mb.m]
+    $mb configure -menu $m
+    
+    set mcdata [menu $m.mcdata]
+    set var [namespace current]::dataview
+    set cmd [namespace current]::fillData
+    $mcdata add radiobutton -label "Proc time" -variable $var -value "proctime" -command $cmd
+    $mcdata add radiobutton -label "Proc time & descendants" -variable $var -value "proctimedesc" -command $cmd
+    $mcdata add radiobutton -label "Number of calls" -variable $var -value "numcalls" -command $cmd
+    set var [namespace current]::includewait
+    $mcdata add separator
+    $mcdata add checkbutton -label "Include .wait. in calculations" -variable $var -command $cmd
+
+    $m add cascade -label "Data" -menu $mcdata
+
+    set mcunits [menu $m.mcunits]
+    set var [namespace current]::units
+    $mcunits add radiobutton -label "Clicks" -variable $var -value "clicks" -command $cmd
+    $mcunits add radiobutton -label "Seconds" -variable $var -value "seconds" -command $cmd
+    $mcunits add radiobutton -label "% of .total." -variable $var -value "percent" -command $cmd
+
+    $m add cascade -label "Units" -menu $mcunits
+    
+    set mcprec [menu $m.mcprec]
+    set var [namespace current]::precision
+    $mcprec add radiobutton -label "0." -variable $var -value "0" -command $cmd
+    $mcprec add radiobutton -label "0.0" -variable $var -value "1" -command $cmd
+    $mcprec add radiobutton -label "0.00" -variable $var -value "2" -command $cmd
+    $mcprec add radiobutton -label "0.000" -variable $var -value "3" -command $cmd
+    $mcprec add radiobutton -label "0.0000" -variable $var -value "4" -command $cmd
+    $mcprec add radiobutton -label "0.00000" -variable $var -value "5" -command $cmd
+
+    $m add cascade -label "Precision" -menu $mcprec
+    
+    $m add separator
+    
+    $m add command -label "Save Settings" -command [namespace code savesettings]
+    
+    # Filter
+    set mb [menubutton $menubarF.mbFilter -text Filter -underline 0]
+    pack $mb -side left -padx 4
+    
+    set m [menu $mb.m]
+    $mb configure -menu $m
+    
+    $m add command -label "Show procs..." -command [namespace code showdlg]
+    $m add command -label "Exclude procs..." -command [namespace code excldlg]
+
+    # help
+    set mb [menubutton $menubarF.mbHelp -text Help -underline 0]
+    pack $mb -side right -padx 2
+    
+    set m [menu $mb.m]
+    $mb configure -menu $m
+    $m add command -label "About" -command [namespace code aboutwindow]
+    
+    # create the frame for the data listbox
+    set bodyF [frame $top.bodyF]
+    pack $bodyF -side top -fill both -expand yes
+    
+    # stats
+    variable program_name
+    variable program_args
+    
+    set statsF [labelledframe $bodyF.statsF "Program Stats"]
+    
+    grid [label $statsF.l1 -text "program:"]                  -row 0 -column 0 -sticky e
+    grid [label $statsF.l2 -text "$program_name $program_args"]          -row 0 -column 1 -sticky w
+    grid [label $statsF.l3 -text "total execution time:"]     -row 1 -column 0 -sticky e
+    grid [label $statsF.l4 -textvariable [namespace current]::stat_absolute]          -row 1 -column 1 -sticky w
+    grid [label $statsF.l5 -text "sage overhead:"]      -row 2 -column 0 -sticky e
+    grid [label $statsF.l6 -textvariable [namespace current]::stat_sage]        -row 2 -column 1 -sticky w
+    grid [label $statsF.l7 -text "Tcl/Tk core time:"] -row 3 -column 0 -sticky e
+    grid [label $statsF.l8 -textvariable [namespace current]::stat_core]          -row 3 -column 1 -sticky w
+
+    # listbox
+    set dataF [frame $bodyF.dataF]
+    pack $dataF -side top -fill both -expand yes -pady 6
+    
+    set dataLBF [frame $dataF.f]
+    pack $dataLBF -side top -fill both -expand yes
+    
+    set dataLB [listbox $dataLBF.dataLB -width 80 \
+      -yscroll [list $dataLBF.s1 set] -xscroll [list $dataF.s set]]
+    pack $dataLB -side left -fill both -expand yes
+    set font [font create -family Courier]
+    $dataLB configure -font $font
+    
+    # Y scrollbar
+    set dataSB [scrollbar $dataLBF.s1 -command [list $dataLB yview]]
+    pack $dataSB -side left -fill y
+    
+    # X scrollbar
+    set dataSB [scrollbar $dataF.s -command [list $dataLB xview] -orient h]
+    pack $dataSB -side top -fill x
+    
+    # the find entry
+    set findF [frame $bodyF.findF]
+    pack $findF -side top -pady 6 -fill both
+    
+    set l [label $findF.l -text "find:"]
+    pack $l -side left
+    
+    set e [entry $findF.e -width 20]
+    pack $e -side left
+    
+    bind $e <Return> "[namespace current]::find_cmd $e"
+    
+    set b [button $findF.b1 -text "find it" -command "[namespace current]::find_cmd $e"]
+    pack $b -side left -padx 6
+    
+    # proc details button
+    set b [button $findF.b2 -text "Show Proc Details" -command "[namespace current]::show_details"]
+    pack $b -side right -padx 7
+    
+    # read in any config settings
+    readsettings
+    
+    # fill in the listbox with the data
+    fillData
+  }
+  
+  proc show_details {} {
+    tk_dialog .msg "Unfinished Work" "This feature is not complete" error 0 ok
+  }
+  
+  proc find_cmd {e} {
+    variable dataLB
+    set find [$e get]
+    
+    # get the current selection 
+    if { [$dataLB curselection] == "" } {
+      set index 0
+    } {
+      set index [$dataLB curselection]
+      incr index
+      if { $index >= [$dataLB index end] } {
+        tk_dialog .msg "Text Not Found" "The text '$find' was not found" error 0 "ok"
+        return
+      }
+    }
+    
+    # get the listbox elements
+    set lbdata [$dataLB get $index end]
+    
+    # search each one for the data
+    foreach entry $lbdata {
+      if { [string first $find $entry] != -1 } {
+        # set the current selection here
+        $dataLB selection clear 0 end
+        $dataLB selection set $index $index
+        $dataLB see $index
+        return
+      }
+      
+      incr index
+    }
+    
+    # didn't find it
+    tk_dialog .msg "Text Not Found" "The text '$find' was not found" error 0 "ok"
+  }
+
+  proc fillData {} {
+    variable timers
+    variable totaltimes
+    variable proccounts
+    variable totaltime
+    variable dataview
+    variable dataLB
+    variable units
+    variable precision
+    variable absolute
+    variable coretime
+    variable sagetime
+    variable stat_absolute
+    variable stat_sage
+    variable stat_core
+    variable includewait
+    variable showlist; variable excllist
+    variable showexptype; variable exclexptype
+    variable exclnumcalls; variable exclpercentage
+    
+    # modify the absolute value if we don't want wait time included
+    if { ! $includewait } {
+      set modabsolute [expr {$absolute - $timers(.wait.)}]
+      set modtotaltime [expr {$totaltime - $timers(.wait.)}]
+    } {
+      set modabsolute $absolute
+      set modtotaltime $totaltime
+    }
+    
+    # first get the stat times in the chosen units
+    set stat_sageper [format "%*.*f%%" [expr { $precision + 4}] $precision [percentageOfGlobal $modabsolute $sagetime]]
+    set stat_coreper [format "%*.*f%%" [expr { $precision + 4}] $precision [percentageOfGlobal $modabsolute $coretime]]
+    
+    if { $units == "clicks" } {
+      set stat_absolute "$modabsolute clicks"
+      set stat_sage "$sagetime clicks ($stat_sageper)"
+      set stat_core "$coretime clicks ($stat_coreper)"
+    } {
+      set stat_absolute [format "%*.*f secs" [expr {$precision + 6}] $precision [clicks2seconds $modabsolute]]
+      set stat_sage [format "%*.*f secs " [expr {$precision + 6}] $precision [clicks2seconds $sagetime]]
+      append stat_sage "($stat_sageper)"
+      set stat_core [format "%*.*f secs " [expr {$precision + 6}] $precision [clicks2seconds $coretime]]
+      append stat_core "($stat_coreper)"
+    }
+    
+    switch $dataview {
+      proctime {
+        set arr timers
+      }
+      proctimedesc {
+        set arr totaltimes
+      }
+      numcalls {
+        set arr proccounts
+      }
+    }
+
+    set global ".global."
+    set data ""
+
+    if { $dataview != "numcalls" } {
+      # put the total time in
+      lappend data [list ".total." [convertData $modtotaltime $modtotaltime]]
+    }
+    
+    foreach name [array names $arr] {
+      if { $name == ".wait." && $includewait == 0 } continue
+      
+      if { $name == $global && $includewait == 0 } {
+        # since waits are done as a descendant of global, we need to remove
+        # the wait time from global
+        set Ltotaltimes [expr {$totaltimes($name) - $timers(.wait.)}]
+      } else {
+        set Ltotaltimes $totaltimes($name)
+      }
+      
+      # is this a match for our show expression?
+      if { ! [foundAMatch $showlist $showexptype $name] } {
+        continue
+      }
+      
+      # how about the exclusion list?
+      if { [foundAMatch $excllist $exclexptype $name] } {
+        continue
+      }
+      
+      # check the num calls exclusion
+      if { $proccounts($name) < $exclnumcalls } {
+        continue
+      }
+      
+      # how about the percentage exclusion
+      if { $exclpercentage != 0.0 } {
+        switch $dataview {
+          proctime {
+            if { [percentageOfGlobal $modtotaltime $timers($name)] < $exclpercentage } {
+              continue
+            }
+          }
+          
+          proctimedesc {
+            if { [percentageOfGlobal $modtotaltime $Ltotaltimes] < $exclpercentage } {
+              continue
+            }
+          }
+        }
+      }
+      
+      # which data do we care about?
+      switch $dataview {
+        proctime {
+          lappend data [list $name [convertData $timers($name) $modtotaltime]]
+        }
+        
+        proctimedesc {
+          lappend data [list $name [convertData $Ltotaltimes $modtotaltime]]
+        }
+        
+        numcalls {
+          lappend data [list $name $proccounts($name)]
+        }
+      }
+    }
+
+    # now sort the list
+    if { $units != "clicks" && $dataview != "numcalls" } {
+      set data [lsort -real -index 1 -decreasing $data]
+    } {
+      set data [lsort -integer -index 1 -decreasing $data]
+    }
+    
+    # put the data into the listbox
+    $dataLB delete 0 end
+    foreach elem $data {
+      foreach {proc value} $elem {}
+      if { $dataview == "numcalls" } {
+          $dataLB insert end [format "%6d calls %s" $value $proc]
+      } else {
+        if { $units == "clicks" } {
+          $dataLB insert end [format "%15d clicks %s" $value $proc]
+        } elseif { $units == "percent" } {
+          $dataLB insert end [format "%*.*f%%  %s" [expr {$precision + 4}] $precision $value $proc]
+        } else {
+          $dataLB insert end [format "%*.*f secs  %s" [expr {$precision + 6}] $precision $value $proc]
+        }
+      }
+    }
+  }
+  
+  proc convertData {value globalvalue} {
+    variable units
+    switch $units {
+      clicks {
+        return $value
+      }
+      seconds {
+        return [clicks2seconds $value]
+      }
+      percent {
+        return [percentageOfGlobal $globalvalue $value]
+      }
+    }
+    
+    return $value
+  }
+  
+  # this proc converts the output of [clock clicks] to seconds.microseconds
+  # your definition of a click may be different from mine (system dependent)
+  # so you may have to monkey with this code
+  proc clicks2seconds {clicks} {
+    return [expr {$clicks / 1000000.0}]
+  }
+  
+  # this proc returns the percentage the item is of $global
+  proc percentageOfGlobal {global item} {
+    set global $global.0
+    set item $item.0
+    #return [expr {(($global - ($global - $item)) / $global) * 100.0}]
+    return [expr {($item / $global) * 100.0}]
+  }
+
+  proc readsettings {} {
+    variable rcfile
+    variable dataview
+    variable units
+    variable precision
+    variable printcmd
+    variable includewait
+    variable showlist
+    variable showexptype
+    variable excllist
+    variable exclexptype
+    variable exclnumcalls
+    variable exclpercentage
+    
+    global tcl_platform
+    
+    if { [file exists $rcfile] } {
+      source $rcfile
+      if { [info vars geometry] == "geometry" } {
+        wm geometry .top $geometry
+      }
+      
+      fillData
+    }
+  }
+  
+  proc savesettings {} {
+    variable rcfile
+    variable dataview
+    variable units
+    variable precision
+    variable printcmd
+    variable includewait
+    variable showlist
+    variable showexptype
+    variable excllist
+    variable exclexptype
+    variable exclnumcalls
+    variable exclpercentage
+    
+    set f [open $rcfile w]
+    puts $f "set dataview $dataview"
+    puts $f "set units $units"
+    puts $f "set precision $precision"
+    puts $f "set printcmd {$printcmd}"
+    puts $f "set geometry [wm geometry .top]"
+    puts $f "set includewait $includewait"
+    puts $f "set showlist {$showlist}"
+    puts $f "set showexptype {$showexptype}"
+    puts $f "set excllist {$excllist}"
+    puts $f "set exclexptype {$exclexptype}"
+    puts $f "set exclnumcalls {$exclnumcalls}"
+    puts $f "set exclpercentage {$exclpercentage}"
+
+    close $f
+  }
+  
+  proc aboutwindow {} {
+    set war {Sage comes with ABSOLUTELY NO WARRANTY. \
+This is free software, and you are welcome to redistribute it \
+under certain conditions; See the file "LICENSE" for details. \
+}
+
+    set top [toplevel .about]
+    pack [frame $top.f -background white] -fill both
+    pack [label $top.f.l -font -*-palatino-*-r-*-*-*-140-*-*-*-*-*-* -text "Sageview version 1.0 John E. Stump" -background white] -side top -padx 5 -pady 3
+    pack [message $top.f.m -text $war -aspect 200 -width 400 -foreground red -background gray95 -borderwidth 3 -relief raised] -side top -padx 5 -pady 3
+    set instrument [image create photo -file wizard3.gif]
+    pack [label $top.f.li -image $instrument -borderwidth 0] -side top -pady 8
+    pack [button $top.f.b -text Ok -command "destroy $top"] -side bottom -pady 4
+
+    # make this window modal
+    grab $top
+    tkwait window $top
+  }
+  
+  proc printwindow {} {
+    set top [toplevel .print]
+    set f [frame $top.f1]
+    pack $f -side top -fill x -pady 7
+    
+    set l [label $f.l -text "Print command:"]
+    pack $l -side left -padx 3
+    
+    set e [entry $f.e -width 40 -textvariable [namespace current]::printcmd]
+    pack $e -side left
+    
+    set f [frame $top.f2]
+    pack $f -side top -pady 3
+    
+    set b [button $f.b1 -text "Print" -command [namespace code [list print_cmd $top]]]
+    pack $b -side left -padx 10
+    
+    set b [button $f.b2 -text "Cancel" -command "destroy $top"]
+    pack $b -side left -padx 10
+    
+    grab $top
+    tkwait window $top
+  }
+  
+  proc print_cmd {top} {
+    variable printcmd
+    variable program_name; variable program_args
+    variable stat_absolute
+    variable stat_sage
+    variable stat_core
+    variable dataLB
+    
+    if { [catch {set f [open "|$printcmd" w]} rc] } {
+      tk_dialog .msg "Error Printing" "Received an error opening pipe to printer:\n$rc" error 0 ok
+      return
+    }
+    
+    puts $f "Sageview v1.0\n\n"
+    puts $f "             Program: $program_name $program_args"
+    puts $f "Total execution time: $stat_absolute"
+    puts $f "  Sage overhead time: $stat_sage"
+    puts $f "    Tcl/Tk Core time: $stat_core"
+    puts $f "\n\n"
+    
+    foreach lbdata [$dataLB get 0 end] {
+      puts $f $lbdata
+    }
+    
+    close $f
+    
+    destroy $top
+  }
+  
+  proc excldlg {} {
+    set ns [namespace current]
+    set top [toplevel .excl]
+    wm title $top "Exclude Procs"
+    
+    set f [frame $top.f1]
+    pack $f -side top -pady 5 -padx 6 -fill x
+    
+    set l [label $f.l -text "Current expression(s):"]
+    pack $l -side left
+    
+    set e [entry $f.e -width 40 -textvariable ${ns}::excllist]
+    pack $e -side right -expand yes -fill x
+    
+    set f [frame $top.f2]
+    pack $f -side top -pady 4 -padx 6
+    
+    set r [radiobutton $f.r1 -text "string match" -variable ${ns}::exclexptype \
+      -value "match"]
+    pack $r -side left -padx 6
+
+    set r [radiobutton $f.r2 -text "regexp" -variable ${ns}::exclexptype \
+      -value "regexp"]
+    pack $r -side left -padx 6
+    
+    set f [frame $top.f3]
+    pack $f -side top -pady 5
+    
+    set l [label $f.l -text "Exclude procs called <"]
+    pack $l -side left
+    set e [entry $f.e -width 2 -textvariable ${ns}::exclnumcalls]
+    pack $e -side left
+    set l [label $f.l2 -text "times"]
+    pack $l -side left
+    
+    set f [frame $top.f4]
+    pack $f -side top -pady 5
+    
+    set l [label $f.l -text "Exclude procs <"]
+    pack $l -side left
+    set e [entry $f.e -width 4 -textvariable ${ns}::exclpercentage]
+    pack $e -side left
+    set l [label $f.l2 -text "% of .total."]
+    pack $l -side left
+    
+    set f [frame $top.f5]
+    pack $f -side top -pady 10
+    
+    set b [button $f.b1 -text "Ok" -command "destroy $top;${ns}::fillData"]
+    pack $b -side left -padx 15
+    set b [button $f.b3 -text "Apply" -command "${ns}::fillData"]
+    pack $b -side left -padx 15
+    set b [button $f.b2 -text "Cancel" -command "destroy $top"]
+    pack $b -side left -padx 15
+  }
+  
+  proc showdlg {} {
+    set ns [namespace current]
+    set top [toplevel .show]
+    wm title $top "Show Procs"
+    
+    set f [frame $top.f1]
+    pack $f -side top -pady 5 -padx 6 -fill x
+    
+    set l [label $f.l -text "Current expression(s):"]
+    pack $l -side left
+    
+    set e [entry $f.e -width 40 -textvariable ${ns}::showlist]
+    pack $e -side right -expand yes -fill x
+    
+    set f [frame $top.f2]
+    pack $f -side top -pady 4 -padx 6
+    
+    set r [radiobutton $f.r1 -text "string match" -variable ${ns}::showexptype \
+      -value "match"]
+    pack $r -side left -padx 6
+
+    set r [radiobutton $f.r2 -text "regexp" -variable ${ns}::showexptype \
+      -value "regexp"]
+    pack $r -side left -padx 6
+    
+    set f [frame $top.f3]
+    pack $f -side top -pady 10
+    
+    set b [button $f.b1 -text "Ok" -command "destroy $top;${ns}::fillData"]
+    pack $b -side left -padx 15
+    set b [button $f.b3 -text "Apply" -command "${ns}::fillData"]
+    pack $b -side left -padx 15
+    set b [button $f.b2 -text "Cancel" -command "destroy $top"]
+    pack $b -side left -padx 15
+  }
+  
+  proc foundAMatch {list type item} {
+    foreach elem $list {
+      if { $type == "match" } {
+        if { $elem == "*" } {
+          # this is always a match
+          return 1
+        }
+        
+        if { [string match $elem $item] } {
+          return 1
+        }
+      } elseif { $type == "regexp" } {
+        if { $elem == ".*" } {
+          return 1
+        }
+        
+        if { [regexp $elem $item] } {
+          return 1
+        }
+      } else {
+        throw "internal error: unknown list matching type: '$type'"
+      }
+    }
+    
+    # couldn't a single match
+    return 0
+  }
+  
+  proc labelledframe {path text} {
+    set frame [frame $path -borderwidth 2 -relief solid]
+
+    set label [label [file rootname $path].l -text $text]
+    pack $frame -fill both -pady [expr {[winfo reqheight $label] / 2}]
+    place $label -relx 0.0 -x 7
+    return $frame
+  }
+
+
+  proc run {} {
+    # run until the sage viewer window goes away
+    tkwait window .top
+    exit 0
+  }
+}
+
+::SageViewer::main $argv
